@@ -8,9 +8,15 @@ def download_datasets():
         os.makedirs("data")
 
     if not os.path.exists("data/goemotion.hf"):
+        print("Saving goemotion to disk")
         goemotion.save_to_disk("data/goemotion.hf")
+    else:
+        print("Goemotion already exists on disk")
     if not os.path.exists("data/yelp.hf"):
+        print("Saving yelp to disk")
         yelp.save_to_disk("data/yelp.hf")
+    else:
+        print("Yelp already exists on disk")
     
     return goemotion, yelp
 
