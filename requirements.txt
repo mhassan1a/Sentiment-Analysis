@@ -5,3 +5,8 @@ torchtext
 scikit-learn
 nltk
 matplotlib
+gensim
+matplotlib
+scipy
+tensorflow
+datasets
