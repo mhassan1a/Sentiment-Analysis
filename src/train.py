@@ -12,11 +12,19 @@ import argparse
 from tqdm import tqdm
 import json
 
+def seed_everything(seed):
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
 def to_cpu_numpy(x):
     return x.detach().cpu().numpy()
 
 def save_model(model, path):
-    torch.save(model.state_dict(), path)
+    torch.save(model.state_dict(), path)    
     
 def save_results(training_losses, validation_losses, train_acc, val_acc, path):
     with open(os.path.join(path, "training_losses.json"), "w") as f:
@@ -69,7 +77,7 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
     validation_losses = []
     val_accs = []
     train_accs = []
-    
+    best_val_acc = 0
     progressbar = tqdm(range(args.epochs), desc='Epochs')
     for epoch in progressbar:
         model, loss, acc = training_step(args, model, loss_fn, optimizer, train_loader)
@@ -81,10 +89,15 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
         validation_losses.append(to_cpu_numpy(val_loss).tolist())
         val_accs.append(to_cpu_numpy(val_acc).tolist())
         
+        
+        progressbar.set_postfix({'Training Loss': training_losses[-1],
+                                 'Validation Loss': validation_losses[-1]})
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
+            save_model(model, os.path.join(args.output_path, f"best_eval_epoch_{epoch}_"+args.output_name))
+            
         if args.dry_run:
-            break
-    progressbar.set_postfix({'Training Loss': training_losses[-1], 'Validation Loss': validation_losses[-1]})
-    
+            break        
     save_model(model, os.path.join(args.output_path, args.output_name))
     save_results(training_losses, validation_losses, train_accs, val_accs, args.output_path)
     
@@ -110,6 +123,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
     parser.add_argument('--dry_run', type=bool, default=True, help='Run a dry run')
+    parser.add_argument('--seed', type=int, default=42, help='Seed')
     args = parser.parse_args()
     
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -144,5 +158,6 @@ if __name__ == "__main__":
     optimizer = Adam(model.parameters(), lr)
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
     
+    seed_everything(args.seed)
     train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, schedular)
     
