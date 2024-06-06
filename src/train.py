@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.optim import Adam
 from models.LSTM import LSTMClassifier
 from local_datasets.yelp import YelpDataset
@@ -11,8 +10,10 @@ import os
 import argparse
 from tqdm import tqdm
 import json
+import numpy as np
 
 def seed_everything(seed):
+    np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
@@ -65,31 +66,27 @@ def training_step(args, model, loss_fn, optimizer, data_loader):
 
 @torch.no_grad()
 def validate_step(args, model, dataloader, loss_fn):
-    correct = 0
-    total = 0
-    with torch.no_grad():
-        for input, labels in dataloader:
-            input_ids = input.to(args.device)
-            labels = labels.to(args.device)
-            output = model(input_ids)
-            loss = loss_fn(output, labels)
-            acc = (output.argmax(dim=1) == labels).float().sum()
-            if args.dry_run == 1:
-                break
+    for input, labels in dataloader:
+        input_ids = input.to(args.device)
+        labels = labels.to(args.device)
+        output = model(input_ids)
+        loss = loss_fn(output, labels)
+        print(output.argmax(dim=1), labels)
+        acc = (output.argmax(dim=1) == labels).float().mean()
+        if args.dry_run == 1:
+            break
     return loss, acc
 
-
+@torch.no_grad()
 def test_model(args, model, loss_fn, data_loader):
-    model.eval()
-    with torch.no_grad():
-        for input, labels in data_loader:
-            input = input.to(args.device)
-            labels = labels.to(args.device)
-            output = model(input)
-            loss = loss_fn(output, labels)
-            acc = (output.argmax(dim=1) == labels).float().mean()
-            if args.dry_run == 1:
-                break
+    for input, labels in data_loader:
+        input = input.to(args.device)
+        labels = labels.to(args.device)
+        output = model(input)
+        loss = loss_fn(output, labels)
+        acc = (output.argmax(dim=1) == labels).float().mean()
+        if args.dry_run == 1:
+            break
     return loss, acc
 
 def train_model(args, model, loss_fn, optimizer, train_loader, 
@@ -102,14 +99,15 @@ def train_model(args, model, loss_fn, optimizer, train_loader,
     best_val_acc = 0
     progressbar = tqdm(range(args.epochs), desc='Epochs')
     for epoch in progressbar:
-        model, loss, acc = training_step(args, model, loss_fn, optimizer, train_loader)
+        model_train, loss, acc = training_step(args, model, loss_fn, optimizer, train_loader)
         training_losses.append(to_cpu_numpy(loss).tolist())
         train_accs.append(to_cpu_numpy(acc).tolist())
         
-        val_loss, val_acc = validate_step(args, model, validation_loader, loss_fn)
+        val_loss, val_acc = validate_step(args, model_train, validation_loader, loss_fn)
         schedular.step(val_loss)
         validation_losses.append(to_cpu_numpy(val_loss).tolist())
         val_accs.append(to_cpu_numpy(val_acc).tolist())
+        
         print(f"Epoch: {epoch} Training Loss: {training_losses[-1]} Validation Loss: {validation_losses[-1]}")
         print(f"Epoch: {epoch} Training Accuracy: {train_accs[-1]} Validation Accuracy: {val_accs[-1]}")
         
@@ -117,7 +115,9 @@ def train_model(args, model, loss_fn, optimizer, train_loader,
                                  'Validation Loss': validation_losses[-1]})
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_model(model, os.path.join(args.output_path, f"best_eval_epoch_{epoch}_"+args.output_name))
+            save_model(model_train, 
+                       os.path.join(args.output_path, 
+                       f"best_eval_epoch_{epoch}_"+args.output_name))
             
         if args.dry_run == 1:
             break        
@@ -140,7 +140,7 @@ datasets_dic = {"yelp": YelpDataset, "goemotions": GoEmotionsDataset}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a model on Yelp or GoEmotions dataset')
-    parser.add_argument('--dataset', type=str, default='goemotions', help='Dataset to train on (yelp or goemotions)')
+    parser.add_argument('--dataset', type=str, default='yelp', help='Dataset to train on (yelp or goemotions)')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--epochs', type=int, default=5, help='Number of epochs')
     parser.add_argument('--device', type=str, default='cuda', help='Device to train on (cpu or cuda)')
@@ -151,13 +151,15 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension')
     parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers')
-    parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
+    parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
     parser.add_argument('--dry_run', type=int, default=1, help='Run a dry run')
     parser.add_argument('--seed', type=int, default=42, help='Seed')
     parser.add_argument('--test', type=int, default=1, help='Run a test')
     parser.add_argument('--n_workers', type=int, default=4, help='Number of workers')
     args = parser.parse_args()
     print(args)
+    
+    seed_everything(args.seed)
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
     
     if args.dataset.strip() == "yelp":
@@ -201,7 +203,7 @@ if __name__ == "__main__":
     optimizer = Adam(model.parameters(), lr)
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
     
-    seed_everything(args.seed)
+    
     train_model(args, model, loss_fn, optimizer,
                 train_loader, validation_loader, test_loader,
                 schedular)

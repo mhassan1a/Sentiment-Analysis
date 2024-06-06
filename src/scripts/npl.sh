@@ -21,7 +21,7 @@ python ./src/train.py --dataset goemotions\
                     --hidden_dim 50\
                     --dropout 0.2\
                     --n_layers 15\
-                    --lr 0.0001\
+                    --lr 0.01\
                     --dry_run 0\
                     --seed 42\
                     --test 0\
