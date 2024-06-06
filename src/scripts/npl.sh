@@ -11,18 +11,21 @@
 echo "Starting Job"
 
 python ./src/train.py --dataset goemotions\
-                    --batch_size 32\
+                    --batch_size 128\
                     --epochs 100\
                     --device cuda\
                     --output_name model.pt\
                     --output_path checkpoints\
+                    --model_name transformer\
+                    --n_heads 16\
                     --vocab_size 30522\
-                    --emb_dim 128\
-                    --hidden_dim 64\
+                    --emb_dim 256\
+                    --hidden_dim 128\
                     --dropout 0.2\
                     --n_layers 3\
-                    --lr 0.001\
+                    --lr 0.0001\
                     --dry_run 0\
                     --seed 42\
                     --test 0\
                     --n_workers 4\
+                    --job_id $SLURM_JOB_ID

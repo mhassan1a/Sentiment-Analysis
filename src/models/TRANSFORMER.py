@@ -12,12 +12,7 @@ class TransformerClassifier(nn.Module):
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
 
-        self.fc = nn.Sequential(
-            nn.Linear(embedding_dim, 512),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, num_classes)
-        )
+        self.fc = nn.Linear(embedding_dim, num_classes)
 
     def forward(self, x):
         embedded = self.embedding(x)  
@@ -29,11 +24,11 @@ class TransformerClassifier(nn.Module):
 
 if __name__ == "__main__":
     input_dim = 30522 
-    embedding_dim = 128  
-    num_classes = 5
-    n_heads = 4
-    n_layers = 2
-    dropout = 0.5
+    embedding_dim = 256  
+    num_classes = 28
+    n_heads = 8
+    n_layers = 3
+    dropout = 0.1
 
     model = TransformerClassifier(input_dim, embedding_dim, num_classes, n_heads, n_layers, dropout)
     

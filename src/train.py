@@ -28,7 +28,7 @@ def to_cpu_numpy(x):
 def save_model(model, path):
     torch.save(model.state_dict(), path)    
 
-def save_results(training_losses, validation_losses, train_acc, val_acc, test_loss, test_acc, path):
+def save_results(args, training_losses, validation_losses, train_acc, val_acc, test_loss, test_acc, path):
     results = {
         "training_losses": training_losses,
         "validation_losses": validation_losses,
@@ -37,9 +37,9 @@ def save_results(training_losses, validation_losses, train_acc, val_acc, test_lo
         "test_loss": test_loss,
         "test_acc": test_acc
     }
-    with open(os.path.join(path, "results.json"), "w") as f:
+    with open(os.path.join(path, f"results_{args.job_id}_.json"), "w") as f:
         json.dump(results, f)
-    print(f"Results saved to: {os.path.join(path, 'results.json')}")
+    print(f"Results saved to: {os.path.join(path, f'results_{args.job_id}_.json')}")
 
 def training_step(args, model, loss_fn, optimizer, data_loader):
     model.train()
@@ -117,13 +117,14 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
         validation_losses.append(val_loss)
         val_accs.append(val_acc)
         
-        print(f"Epoch: {epoch} Training Loss: {train_loss} Validation Loss: {val_loss}")
+        print(f"Epoch: {epoch} Training Loss: {train_loss} Validation Loss: {val_loss} lr: {optimizer.param_groups[0]['lr']}")
         print(f"Epoch: {epoch} Training Accuracy: {train_acc} Validation Accuracy: {val_acc}")
         
-        progressbar.set_postfix({'Training Loss': train_loss, 'Validation Loss': val_loss})
+        progressbar.set_postfix({'Training Loss': train_loss, 'Validation Loss': val_loss, "lr": 
+                                optimizer.param_groups[0]['lr']})
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_model(model, os.path.join(args.output_path, f"best_eval_epoch_" + args.output_name))
+            save_model(model, os.path.join(args.output_path, f"best_eval_epoch__{args.job_id}_" + args.output_name))
         
         if args.dry_run == 1:
             break        
@@ -131,10 +132,9 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
     
     print("Test Loss: ", test_loss, "Test Accuracy: ", test_acc)
     save_model(model, os.path.join(args.output_path, args.output_name))
-    save_results(training_losses, validation_losses, train_accs, val_accs, test_loss, test_acc, args.output_path)
+    save_results(args, training_losses, validation_losses, train_accs, val_accs, test_loss, test_acc, args.output_path)
     print("Model saved to: ", os.path.join(args.output_path, args.output_name))
 
-datasets_dic = {"yelp": YelpDataset, "goemotions": GoEmotionsDataset}
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a model on Yelp or GoEmotions dataset')
@@ -154,7 +154,9 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42, help='Seed')
     parser.add_argument('--test', type=int, default=1, help='Run a test')
     parser.add_argument('--n_workers', type=int, default=4, help='Number of workers')
-    
+    parser.add_argument('--model_name', type=str, default='lstm', help='Model to train (lstm or transformer)')
+    parser.add_argument('--n_heads', type=int, default=4, help='Number of heads')
+    parser.add_argument('--job_id', type=int, default=0, help='Job id')
     args = parser.parse_args()
     print(args)
     
@@ -184,10 +186,12 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, drop_last=True, num_workers=args.n_workers)
     
     loss_fn = nn.CrossEntropyLoss().to(args.device)
-    
-    model = TransformerClassifier(args.vocab_size, args.emb_dim, num_classes, 4, 2, args.dropout).to(args.device)
+    if args.model_name.strip() == "lstm":
+        model = LSTMClassifier(args.vocab_size, args.emb_dim, num_classes, args.hidden_dim, args.n_layers, args.dropout).to(args.device)
+    elif args.model_name.strip() == "transformer":
+        model = TransformerClassifier(args.vocab_size, args.emb_dim, num_classes, args.n_heads, args.n_layers, args.dropout).to(args.device)
     optimizer = Adam(model.parameters(), lr=args.lr)
-    schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
+    schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=3)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of parameters: {num_params}")
     train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, test_loader, schedular)
