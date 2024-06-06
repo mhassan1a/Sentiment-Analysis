@@ -43,7 +43,6 @@ def save_results(training_losses, validation_losses, train_acc, val_acc, path):
 def training_step(args, model, loss_fn, optimizer, data_loader):
     model.train()
     for input, labels in data_loader:
-        print(input.size(), labels.size())
         input = input.to(args.device)
         labels = labels.to(args.device)
         optimizer.zero_grad()
@@ -52,7 +51,7 @@ def training_step(args, model, loss_fn, optimizer, data_loader):
         loss.backward()
         optimizer.step()
         acc = (output.argmax(dim=1) == labels).float().mean()
-        if args.dry_run:
+        if args.dry_run == 1:
             break
     return model, loss, acc
 
@@ -67,7 +66,7 @@ def validate_step(args, model, dataloader, loss_fn):
             output = model(input_ids)
             loss = loss_fn(output, labels)
             acc = (output.argmax(dim=1) == labels).float().sum()
-            if args.dry_run:
+            if args.dry_run == 1:
                 break
     return loss, acc
 
@@ -96,7 +95,7 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
             best_val_acc = val_acc
             save_model(model, os.path.join(args.output_path, f"best_eval_epoch_{epoch}_"+args.output_name))
             
-        if args.dry_run:
+        if args.dry_run == 1:
             break        
     save_model(model, os.path.join(args.output_path, args.output_name))
     save_results(training_losses, validation_losses, train_accs, val_accs, args.output_path)
@@ -113,7 +112,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='goemotions', help='Dataset to train on (yelp or goemotions)')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--epochs', type=int, default=5, help='Number of epochs')
-    parser.add_argument('--device', type=str, default='cpu', help='Device to train on (cpu or cuda)')
+    parser.add_argument('--device', type=str, default='cuda', help='Device to train on (cpu or cuda)')
     parser.add_argument('--output_name', type=str, default='model.pt', help='Output model name')
     parser.add_argument('--output_path', type=str, default='checkpoints/', help='Output model path')
     parser.add_argument('--vocab_size', type=int, default=30522, help='Vocabulary size')
@@ -122,11 +121,14 @@ if __name__ == "__main__":
     parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers')
     parser.add_argument('--lr', type=float, default=0.001, help='Learning rate')
-    parser.add_argument('--dry_run', type=bool, default=True, help='Run a dry run')
+    parser.add_argument('--dry_run', type=int, default=1, help='Run a dry run')
     parser.add_argument('--seed', type=int, default=42, help='Seed')
+    parser.add_argument('--test', type=int, default=1, help='Run a test')
+    parser.add_argument('--n_workers', type=int, default=4, help='Number of workers')
     args = parser.parse_args()
-    
+    print(args)
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     if args.dataset.strip() == "yelp":
         args.output_name = "yelp_" + args.output_name
         num_classes = 5
@@ -144,9 +146,13 @@ if __name__ == "__main__":
         raise ValueError("Dataset not supported")
     
     
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, drop_last=True)
-    validation_loader = DataLoader(validate_data, batch_size=args.batch_size, shuffle=False, drop_last=True)    
-    loss_fn = nn.CrossEntropyLoss()
+    train_loader = DataLoader(train_data, batch_size=args.batch_size,
+                              shuffle=True, drop_last=True, num_workers=
+                              args.n_workers)
+    validation_loader = DataLoader(validate_data, batch_size=args.batch_size,
+                                   shuffle=False, drop_last=True,
+                                   num_workers=args.n_workers)    
+    loss_fn = nn.CrossEntropyLoss().to(args.device)
     
     vocab_size = args.vocab_size
     emb_dim = args.emb_dim
@@ -154,7 +160,7 @@ if __name__ == "__main__":
     n_layers = args.n_layers
     lr = args.lr
     
-    model = LSTMClassifier(vocab_size, emb_dim, num_classes, n_layers, dropout)
+    model = LSTMClassifier(vocab_size, emb_dim, num_classes, n_layers, dropout).to(args.device)
     optimizer = Adam(model.parameters(), lr)
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
     
