@@ -1,5 +1,6 @@
 import datasets
 import os
+from transformers import AutoTokenizer
 
 def download_datasets():
     goemotion = datasets.load_dataset("go_emotions", "simplified")
@@ -20,9 +21,25 @@ def download_datasets():
     
     return goemotion, yelp
 
+def save_tokenized_datasets(dataset, tokenizer, path):
+    def tokenize_function(examples):
+        return tokenizer(examples['text'], padding='max_length', truncation=True)
+    
+    tokenized_dataset = dataset.map(tokenize_function, batched=True)
+    tokenized_dataset.save_to_disk(path)
+    return tokenized_dataset
+
 if __name__ == "__main__":
     goemotion, yelp = download_datasets()
     print(goemotion.keys())
+    print(yelp.keys())
+    tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    if not os.path.exists("data/goemotion_tokenized.hf"):
+        goemotion = save_tokenized_datasets(goemotion, tokenizer, "data/goemotion_tokenized.hf")
+    goemotion = save_tokenized_datasets(goemotion, tokenizer, "data/goemotion_tokenized.hf")
+    if not os.path.exists("data/yelp_tokenized.hf"):
+        yelp = save_tokenized_datasets(yelp, tokenizer, "data/yelp_tokenized.hf")
+    print(goemotion.keys()) 
     print(yelp.keys())
 
 
