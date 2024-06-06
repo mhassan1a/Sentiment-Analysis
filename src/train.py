@@ -11,6 +11,7 @@ import argparse
 from tqdm import tqdm
 import json
 import numpy as np
+from models.TRANSFORMER import TransformerClassifier
 
 def seed_everything(seed):
     np.random.seed(seed)
@@ -26,31 +27,25 @@ def to_cpu_numpy(x):
 
 def save_model(model, path):
     torch.save(model.state_dict(), path)    
-    
-def save_results(training_losses, validation_losses,
-                 train_acc, val_acc, path,
-                 test_loss, test_acc):
-    with open(os.path.join(path, "training_losses.json"), "w") as f:
-        json.dump(training_losses, f)
-        print("Training losses saved to: ", os.path.join(path, "training_losses.json"))
-    with open(os.path.join(path, "validation_losses.json"), "w") as f:
-        json.dump(validation_losses, f)
-        print("Validation losses saved to: ", os.path.join(path, "validation_losses.json"))
-    with open(os.path.join(path, "train_acc.json"), "w") as f:
-        json.dump(train_acc, f)
-        print("Training accuracy saved to: ", os.path.join(path, "train_acc.json"))
-    with open(os.path.join(path, "val_acc.json"), "w") as f:
-        json.dump(val_acc, f)
-        print("Validation accuracy saved to: ", os.path.join(path, "val_acc.json"))
-    with open(os.path.join(path, "test_loss.json"), "w") as f:
-        json.dump(test_loss, f)
-        print("Test loss saved to: ", os.path.join(path, "test_loss.json"))
-    with open(os.path.join(path, "test_acc.json"), "w") as f:
-        json.dump(test_acc, f)
-        print("Test accuracy saved to: ", os.path.join(path, "test_acc.json"))
-    
+
+def save_results(training_losses, validation_losses, train_acc, val_acc, test_loss, test_acc, path):
+    results = {
+        "training_losses": training_losses,
+        "validation_losses": validation_losses,
+        "train_acc": train_acc,
+        "val_acc": val_acc,
+        "test_loss": test_loss,
+        "test_acc": test_acc
+    }
+    with open(os.path.join(path, "results.json"), "w") as f:
+        json.dump(results, f)
+    print(f"Results saved to: {os.path.join(path, 'results.json')}")
+
 def training_step(args, model, loss_fn, optimizer, data_loader):
     model.train()
+    training_loss = 0
+    correct_predictions = 0
+    total_predictions = 0
     for input, labels in data_loader:
         input = input.to(args.device)
         labels = labels.to(args.device)
@@ -59,82 +54,85 @@ def training_step(args, model, loss_fn, optimizer, data_loader):
         loss = loss_fn(output, labels)
         loss.backward()
         optimizer.step()
-        acc = (output.argmax(dim=1) == labels).float().mean()
+        training_loss += loss.item()
+        correct_predictions += (output.argmax(dim=1) == labels).sum().item()
+        total_predictions += labels.size(0)
         if args.dry_run == 1:
             break
-    return model, loss, acc
+    accuracy = correct_predictions / total_predictions
+    return model, training_loss / len(data_loader), accuracy
 
 @torch.no_grad()
 def validate_step(args, model, dataloader, loss_fn):
+    model.eval()
+    validation_loss = 0
+    correct_predictions = 0
+    total_predictions = 0
     for input, labels in dataloader:
-        input_ids = input.to(args.device)
+        input = input.to(args.device)
         labels = labels.to(args.device)
-        output = model(input_ids)
+        output = model(input)
         loss = loss_fn(output, labels)
-        print(output.argmax(dim=1), labels)
-        acc = (output.argmax(dim=1) == labels).float().mean()
+        validation_loss += loss.item()
+        correct_predictions += (output.argmax(dim=1) == labels).sum().item()
+        total_predictions += labels.size(0)
         if args.dry_run == 1:
             break
-    return loss, acc
+    accuracy = correct_predictions / total_predictions
+    return validation_loss / len(dataloader), accuracy
 
 @torch.no_grad()
 def test_model(args, model, loss_fn, data_loader):
+    model.eval()
+    test_loss = 0
+    correct_predictions = 0
+    total_predictions = 0
     for input, labels in data_loader:
         input = input.to(args.device)
         labels = labels.to(args.device)
         output = model(input)
         loss = loss_fn(output, labels)
-        acc = (output.argmax(dim=1) == labels).float().mean()
+        test_loss += loss.item()
+        correct_predictions += (output.argmax(dim=1) == labels).sum().item()
+        total_predictions += labels.size(0)
         if args.dry_run == 1:
             break
-    return loss, acc
+    accuracy = correct_predictions / total_predictions
+    return test_loss / len(data_loader), accuracy
 
-def train_model(args, model, loss_fn, optimizer, train_loader, 
-                validation_loader, test_loader, schedular):
-    print("START: Training model:.....")
+def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, test_loader, schedular):
     training_losses = []
     validation_losses = []
-    val_accs = []
     train_accs = []
+    val_accs = []
     best_val_acc = 0
     progressbar = tqdm(range(args.epochs), desc='Epochs')
     for epoch in progressbar:
-        model_train, loss, acc = training_step(args, model, loss_fn, optimizer, train_loader)
-        training_losses.append(to_cpu_numpy(loss).tolist())
-        train_accs.append(to_cpu_numpy(acc).tolist())
+        model, train_loss, train_acc = training_step(args, model, loss_fn, optimizer, train_loader)
+        training_losses.append(train_loss)
+        train_accs.append(train_acc)
         
-        val_loss, val_acc = validate_step(args, model_train, validation_loader, loss_fn)
+        val_loss, val_acc = validate_step(args, model, validation_loader, loss_fn)
         schedular.step(val_loss)
-        validation_losses.append(to_cpu_numpy(val_loss).tolist())
-        val_accs.append(to_cpu_numpy(val_acc).tolist())
+        validation_losses.append(val_loss)
+        val_accs.append(val_acc)
         
-        print(f"Epoch: {epoch} Training Loss: {training_losses[-1]} Validation Loss: {validation_losses[-1]}")
-        print(f"Epoch: {epoch} Training Accuracy: {train_accs[-1]} Validation Accuracy: {val_accs[-1]}")
+        print(f"Epoch: {epoch} Training Loss: {train_loss} Validation Loss: {val_loss}")
+        print(f"Epoch: {epoch} Training Accuracy: {train_acc} Validation Accuracy: {val_acc}")
         
-        progressbar.set_postfix({'Training Loss': training_losses[-1],
-                                 'Validation Loss': validation_losses[-1]})
+        progressbar.set_postfix({'Training Loss': train_loss, 'Validation Loss': val_loss})
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_model(model_train, 
-                       os.path.join(args.output_path, 
-                       f"best_eval_epoch_{epoch}_"+args.output_name))
-            
+            save_model(model, os.path.join(args.output_path, f"best_eval_epoch_" + args.output_name))
+        
         if args.dry_run == 1:
             break        
     test_loss, test_acc = test_model(args, model, loss_fn, test_loader)
-    test_loss = to_cpu_numpy(test_loss).tolist()
-    test_acc = to_cpu_numpy(test_acc).tolist()
     
     print("Test Loss: ", test_loss, "Test Accuracy: ", test_acc)
     save_model(model, os.path.join(args.output_path, args.output_name))
-    save_results(training_losses, validation_losses, train_accs, val_accs,
-                 test_loss, test_acc, args.output_path)
-    
-    
-    print("END: Training model:.....")
+    save_results(training_losses, validation_losses, train_accs, val_accs, test_loss, test_acc, args.output_path)
     print("Model saved to: ", os.path.join(args.output_path, args.output_name))
-
-
 
 datasets_dic = {"yelp": YelpDataset, "goemotions": GoEmotionsDataset}
 
@@ -156,6 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42, help='Seed')
     parser.add_argument('--test', type=int, default=1, help='Run a test')
     parser.add_argument('--n_workers', type=int, default=4, help='Number of workers')
+    
     args = parser.parse_args()
     print(args)
     
@@ -180,31 +179,15 @@ if __name__ == "__main__":
     else:
         raise ValueError("Dataset not supported")
     
-    
-    train_loader = DataLoader(train_data, batch_size=args.batch_size,
-                              shuffle=True, drop_last=True, num_workers=
-                              args.n_workers)
-    validation_loader = DataLoader(validate_data, batch_size=args.batch_size,
-                                   shuffle=False, drop_last=True,
-                                   num_workers=args.n_workers)    
-    test_loader = DataLoader(test_data, batch_size=args.batch_size,
-                                  shuffle=False, drop_last=True,
-                                  num_workers=args.n_workers)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, drop_last=True, num_workers=args.n_workers)
+    validation_loader = DataLoader(validate_data, batch_size=args.batch_size, shuffle=False, drop_last=True, num_workers=args.n_workers)    
+    test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, drop_last=True, num_workers=args.n_workers)
     
     loss_fn = nn.CrossEntropyLoss().to(args.device)
     
-    vocab_size = args.vocab_size
-    emb_dim = args.emb_dim
-    dropout = args.dropout
-    n_layers = args.n_layers
-    lr = args.lr
-    
-    model = LSTMClassifier(vocab_size, emb_dim, num_classes, n_layers, dropout).to(args.device)
-    optimizer = Adam(model.parameters(), lr)
+    model = TransformerClassifier(args.vocab_size, args.emb_dim, num_classes, 4, 2, args.dropout).to(args.device)
+    optimizer = Adam(model.parameters(), lr=args.lr)
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-    
-    
-    train_model(args, model, loss_fn, optimizer,
-                train_loader, validation_loader, test_loader,
-                schedular)
-    
+    num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Number of parameters: {num_params}")
+    train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, test_loader, schedular)

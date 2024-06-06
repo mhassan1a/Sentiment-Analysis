@@ -5,24 +5,51 @@ import torch.nn.functional as F
 class LSTMClassifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_classes, n_layers, dropout):
         super(LSTMClassifier, self).__init__()
+        
+        self.vocab_size = input_dim
+        self.hidden_dim = hidden_dim
+        self.num_classes = num_classes
+        self.n_layers = n_layers
+        self.dropout = dropout
+        
         self.embedding = nn.Embedding(input_dim, hidden_dim)
-        self.lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers=n_layers, dropout=dropout, batch_first=True)
-        self.fc = nn.Linear( hidden_dim, num_classes)
-        self.dropout = nn.Dropout(dropout)
+        self.lstm = nn.LSTM(
+            input_size=hidden_dim,
+            hidden_size=hidden_dim,
+            num_layers=n_layers,
+            dropout=dropout,
+            batch_first=True
+        )
+        self.fc = nn.Sequential(
+            nn.Linear(self.hidden_dim, 512),
+            nn.ReLU(),
+            nn.Dropout(self.dropout),
+            nn.Linear(512, self.num_classes)
+        )
+            
+        self.dropout_layer = nn.Dropout(self.dropout)
 
     def forward(self, x):
-        embedded = self.dropout(self.embedding(x))
-        output, (hidden, cell) = self.lstm(embedded)
-        hidden = self.dropout(hidden[-1,:,:])
-        return self.fc(hidden)
-    
+        embedded = self.embedding(x)
+        h0 = torch.zeros(self.n_layers, x.size(0), self.hidden_dim).to(x.device)
+        c0 = torch.zeros(self.n_layers, x.size(0), self.hidden_dim).to(x.device)
+        out, _ = self.lstm(embedded, (h0, c0))
+        out = self.fc(out[:, -1, :])
+        return out
 
 if __name__ == "__main__":
-    model = LSTMClassifier(30522, 256, 5, 10, 0.5)
-    x = torch.randint(0, 1000, (32, 100))
-    x_lengths =  torch.ones(32)
-    y = model(x)
+    input_dim = 30522
+    hidden_dim = 256
+    num_classes = 5
+    n_layers = 2
+    dropout = 0.5
+    
+    model = LSTMClassifier(input_dim, hidden_dim, num_classes, n_layers, dropout)
+    x = torch.randint(0, input_dim, (32, 132))  
+    print(f"Input size: {x.size()}") 
+    y = torch.randint(0, num_classes, (32,))
+    pred = model(x)
+    pred_labels = torch.argmax(pred, dim=1)
+    print(f"Predicted labels: {pred_labels}")
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of parameters: {num_params}")
-    
-    
