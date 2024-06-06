@@ -34,6 +34,7 @@ if __name__ == "__main__":
     print(goemotion.keys())
     print(yelp.keys())
     tokenizer = AutoTokenizer.from_pretrained("bert-base-uncased")
+    print(tokenizer.vocab_size)
     if not os.path.exists("data/goemotion_tokenized.hf"):
         goemotion = save_tokenized_datasets(goemotion, tokenizer, "data/goemotion_tokenized.hf")
     goemotion = save_tokenized_datasets(goemotion, tokenizer, "data/goemotion_tokenized.hf")

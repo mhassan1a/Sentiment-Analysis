@@ -3,7 +3,7 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from torch import nn
 from transformers import AutoTokenizer
-from datasets import load_dataset, load_from_disk
+from local_datasets import load_dataset, load_from_disk
 
 # Define constants
 BATCH_SIZE = 32
@@ -12,7 +12,7 @@ LEARNING_RATE = 1e-3
 
 
 
-
+TO_CPU_Numpy = lambda x: x.detach().cpu().numpy()
 
 def download_or_load_datasets():
     # Directory paths
