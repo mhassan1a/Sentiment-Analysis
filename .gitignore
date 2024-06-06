@@ -9,6 +9,7 @@ env/
 ENV/
 out/
 checkpoints/
+checkpoints/*
 # IDE files
 .vscode/
 .idea/

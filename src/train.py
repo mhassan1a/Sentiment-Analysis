@@ -26,7 +26,9 @@ def to_cpu_numpy(x):
 def save_model(model, path):
     torch.save(model.state_dict(), path)    
     
-def save_results(training_losses, validation_losses, train_acc, val_acc, path):
+def save_results(training_losses, validation_losses,
+                 train_acc, val_acc, path,
+                 test_loss, test_acc):
     with open(os.path.join(path, "training_losses.json"), "w") as f:
         json.dump(training_losses, f)
         print("Training losses saved to: ", os.path.join(path, "training_losses.json"))
@@ -39,6 +41,12 @@ def save_results(training_losses, validation_losses, train_acc, val_acc, path):
     with open(os.path.join(path, "val_acc.json"), "w") as f:
         json.dump(val_acc, f)
         print("Validation accuracy saved to: ", os.path.join(path, "val_acc.json"))
+    with open(os.path.join(path, "test_loss.json"), "w") as f:
+        json.dump(test_loss, f)
+        print("Test loss saved to: ", os.path.join(path, "test_loss.json"))
+    with open(os.path.join(path, "test_acc.json"), "w") as f:
+        json.dump(test_acc, f)
+        print("Test accuracy saved to: ", os.path.join(path, "test_acc.json"))
     
 def training_step(args, model, loss_fn, optimizer, data_loader):
     model.train()
@@ -70,7 +78,22 @@ def validate_step(args, model, dataloader, loss_fn):
                 break
     return loss, acc
 
-def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, schedular):
+
+def test_model(args, model, loss_fn, data_loader):
+    model.eval()
+    with torch.no_grad():
+        for input, labels in data_loader:
+            input = input.to(args.device)
+            labels = labels.to(args.device)
+            output = model(input)
+            loss = loss_fn(output, labels)
+            acc = (output.argmax(dim=1) == labels).float().mean()
+            if args.dry_run == 1:
+                break
+    return loss, acc
+
+def train_model(args, model, loss_fn, optimizer, train_loader, 
+                validation_loader, test_loader, schedular):
     print("START: Training model:.....")
     training_losses = []
     validation_losses = []
@@ -87,7 +110,8 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
         schedular.step(val_loss)
         validation_losses.append(to_cpu_numpy(val_loss).tolist())
         val_accs.append(to_cpu_numpy(val_acc).tolist())
-        
+        print(f"Epoch: {epoch} Training Loss: {training_losses[-1]} Validation Loss: {validation_losses[-1]}")
+        print(f"Epoch: {epoch} Training Accuracy: {train_accs[-1]} Validation Accuracy: {val_accs[-1]}")
         
         progressbar.set_postfix({'Training Loss': training_losses[-1],
                                  'Validation Loss': validation_losses[-1]})
@@ -97,8 +121,15 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
             
         if args.dry_run == 1:
             break        
+    test_loss, test_acc = test_model(args, model, loss_fn, test_loader)
+    test_loss = to_cpu_numpy(test_loss).tolist()
+    test_acc = to_cpu_numpy(test_acc).tolist()
+    
+    print("Test Loss: ", test_loss, "Test Accuracy: ", test_acc)
     save_model(model, os.path.join(args.output_path, args.output_name))
-    save_results(training_losses, validation_losses, train_accs, val_accs, args.output_path)
+    save_results(training_losses, validation_losses, train_accs, val_accs,
+                 test_loss, test_acc, args.output_path)
+    
     
     print("END: Training model:.....")
     print("Model saved to: ", os.path.join(args.output_path, args.output_name))
@@ -136,12 +167,14 @@ if __name__ == "__main__":
         dataset = YelpDataset("train")
         train_data = dataset[:int(len(dataset) * train_split)]
         validate_data = dataset[int(len(dataset) * train_split):]
+        test_data = YelpDataset("test")
         
     elif args.dataset.strip() == "goemotions":
         args.output_name = "goemotions_" + args.output_name
         num_classes = 28
         train_data = GoEmotionsDataset("train")
         validate_data = GoEmotionsDataset("validation")
+        test_data = GoEmotionsDataset("test")
     else:
         raise ValueError("Dataset not supported")
     
@@ -152,6 +185,10 @@ if __name__ == "__main__":
     validation_loader = DataLoader(validate_data, batch_size=args.batch_size,
                                    shuffle=False, drop_last=True,
                                    num_workers=args.n_workers)    
+    test_loader = DataLoader(test_data, batch_size=args.batch_size,
+                                  shuffle=False, drop_last=True,
+                                  num_workers=args.n_workers)
+    
     loss_fn = nn.CrossEntropyLoss().to(args.device)
     
     vocab_size = args.vocab_size
@@ -165,5 +202,7 @@ if __name__ == "__main__":
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
     
     seed_everything(args.seed)
-    train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, schedular)
+    train_model(args, model, loss_fn, optimizer,
+                train_loader, validation_loader, test_loader,
+                schedular)
     

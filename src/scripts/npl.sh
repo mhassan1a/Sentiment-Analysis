@@ -11,14 +11,14 @@
 echo "Starting Job"
 
 python ./src/train.py --dataset goemotions\
-                    --batch_size 100\
+                    --batch_size 256\
                     --epochs 100\
                     --device cuda\
                     --output_name model.pt\
                     --output_path checkpoints\
                     --vocab_size 30522\
                     --emb_dim 300\
-                    --hidden_dim 256\
+                    --hidden_dim 50\
                     --dropout 0.2\
                     --n_layers 15\
                     --lr 0.0001\
