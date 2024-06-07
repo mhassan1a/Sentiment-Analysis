@@ -130,10 +130,13 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
         
         if args.dry_run == 1:
             break        
+        if optimizer.param_groups[0]['lr'] < 1e-6:
+            print("Learning rate too low. Stopping training")
+            break
     test_loss, test_acc = test_model(args, model, loss_fn, test_loader)
     
     print("Test Loss: ", test_loss, "Test Accuracy: ", test_acc)
-    save_model(model, os.path.join(args.output_path, args.output_name))
+    save_model(model, os.path.join(args.output_path, args.output_name + f"_{args.job_id}"))
     save_results(args, training_losses, validation_losses, train_accs, val_accs, test_loss, test_acc, args.output_path)
     print("Model saved to: ", os.path.join(args.output_path, args.output_name))
 
