@@ -160,6 +160,7 @@ if __name__ == "__main__":
     parser.add_argument('--n_heads', type=int, default=4, help='Number of heads')
     parser.add_argument('--job_id', type=int, default=0, help='Job id')
     parser.add_argument('--weight_decay', type=float, default=0.0001, help='Weight decay')
+    parser.add_argument('--dim_feedforward', type=int, default="2048", help='Feedforward dimension')
     args = parser.parse_args()
     print(args)
     
@@ -195,10 +196,16 @@ if __name__ == "__main__":
     
     if args.model_name.strip() == "lstm":
         model = LSTMClassifier(args.vocab_size, args.emb_dim,
-                               num_classes, args.n_layers, args.dropout).to(args.device)
+                               num_classes, args.n_layers, 
+                               args.dropout
+                               ).to(args.device)
+        
     elif args.model_name.strip() == "transformer":
         model = TransformerClassifier(args.vocab_size, args.emb_dim,
-                                      num_classes, args.n_heads, args.n_layers, args.dropout).to(args.device)
+                                      num_classes, args.n_heads, 
+                                      args.n_layers, args.dropout,
+                                      args.dim_feedforward
+                                      ).to(args.device)
     
     loss_fn = nn.CrossEntropyLoss().to(args.device)    
     optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)

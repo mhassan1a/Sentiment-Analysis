@@ -2,13 +2,15 @@ import torch
 import torch.nn as nn
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, input_dim, embedding_dim, num_classes, n_heads, n_layers, dropout):
+    def __init__(self, input_dim, embedding_dim, 
+                 num_classes, n_heads, n_layers, dropout, dim_feedforward):
         super(TransformerClassifier, self).__init__()
 
         self.embedding = nn.Embedding(input_dim, embedding_dim)
 
         encoder_layer = nn.TransformerEncoderLayer(
-            d_model=embedding_dim, nhead=n_heads, dim_feedforward=2048, dropout=dropout
+            d_model=embedding_dim, nhead=n_heads,
+            dim_feedforward=dim_feedforward, dropout=dropout
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=n_layers)
 
