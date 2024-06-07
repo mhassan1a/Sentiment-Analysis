@@ -12,6 +12,7 @@ from tqdm import tqdm
 import json
 import numpy as np
 from models.TRANSFORMER import TransformerClassifier
+from torch.utils.data import Subset
 
 def seed_everything(seed):
     np.random.seed(seed)
@@ -35,7 +36,8 @@ def save_results(args, training_losses, validation_losses, train_acc, val_acc, t
         "train_acc": train_acc,
         "val_acc": val_acc,
         "test_loss": test_loss,
-        "test_acc": test_acc
+        "test_acc": test_acc,
+        "args": vars(args),
     }
     with open(os.path.join(path, f"results_{args.job_id}_.json"), "w") as f:
         json.dump(results, f)
@@ -138,7 +140,7 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Train a model on Yelp or GoEmotions dataset')
-    parser.add_argument('--dataset', type=str, default='yelp', help='Dataset to train on (yelp or goemotions)')
+    parser.add_argument('--dataset', type=str, default='goemotions', help='Dataset to train on (yelp or goemotions)')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size')
     parser.add_argument('--epochs', type=int, default=5, help='Number of epochs')
     parser.add_argument('--device', type=str, default='cuda', help='Device to train on (cpu or cuda)')
@@ -157,6 +159,7 @@ if __name__ == "__main__":
     parser.add_argument('--model_name', type=str, default='lstm', help='Model to train (lstm or transformer)')
     parser.add_argument('--n_heads', type=int, default=4, help='Number of heads')
     parser.add_argument('--job_id', type=int, default=0, help='Job id')
+    parser.add_argument('--weight_decay', type=float, default=0.0001, help='Weight decay')
     args = parser.parse_args()
     print(args)
     
@@ -166,10 +169,11 @@ if __name__ == "__main__":
     if args.dataset.strip() == "yelp":
         args.output_name = "yelp_" + args.output_name
         num_classes = 5
-        train_split = 0.8
         dataset = YelpDataset("train")
-        train_data = dataset[:int(len(dataset) * train_split)]
-        validate_data = dataset[int(len(dataset) * train_split):]
+        idx = np.random.permutation(np.arange(len(dataset)))
+        train_split = 0.8
+        train_data = Subset(dataset, idx[:int(len(dataset) * train_split)])
+        validate_data = Subset(dataset, idx[int(len(dataset) * train_split):])
         test_data = YelpDataset("test")
         
     elif args.dataset.strip() == "goemotions":
@@ -181,16 +185,23 @@ if __name__ == "__main__":
     else:
         raise ValueError("Dataset not supported")
     
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True, drop_last=True, num_workers=args.n_workers)
-    validation_loader = DataLoader(validate_data, batch_size=args.batch_size, shuffle=False, drop_last=True, num_workers=args.n_workers)    
-    test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, drop_last=True, num_workers=args.n_workers)
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, 
+                              shuffle=True, drop_last=True, num_workers=args.n_workers)
+    validation_loader = DataLoader(validate_data, batch_size=args.batch_size,
+                                   shuffle=False, drop_last=True, num_workers=args.n_workers)    
+    test_loader = DataLoader(test_data, batch_size=args.batch_size,
+                             shuffle=False, drop_last=True, num_workers=args.n_workers)
     
-    loss_fn = nn.CrossEntropyLoss().to(args.device)
+    
     if args.model_name.strip() == "lstm":
-        model = LSTMClassifier(args.vocab_size, args.emb_dim, num_classes, args.hidden_dim, args.n_layers, args.dropout).to(args.device)
+        model = LSTMClassifier(args.vocab_size, args.emb_dim,
+                               num_classes, args.n_layers, args.dropout).to(args.device)
     elif args.model_name.strip() == "transformer":
-        model = TransformerClassifier(args.vocab_size, args.emb_dim, num_classes, args.n_heads, args.n_layers, args.dropout).to(args.device)
-    optimizer = Adam(model.parameters(), lr=args.lr)
+        model = TransformerClassifier(args.vocab_size, args.emb_dim,
+                                      num_classes, args.n_heads, args.n_layers, args.dropout).to(args.device)
+    
+    loss_fn = nn.CrossEntropyLoss().to(args.device)    
+    optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=3)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of parameters: {num_params}")

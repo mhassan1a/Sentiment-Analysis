@@ -10,7 +10,7 @@
 
 echo "Starting Job"
 
-python ./src/train.py --dataset goemotions\
+python ./src/train.py --dataset yelp\
                     --batch_size 128\
                     --epochs 100\
                     --device cuda\
@@ -21,11 +21,15 @@ python ./src/train.py --dataset goemotions\
                     --vocab_size 30522\
                     --emb_dim 256\
                     --hidden_dim 128\
-                    --dropout 0.2\
-                    --n_layers 3\
+                    --dropout 0.3\
+                    --weight_decay 0.0001\
+                    --n_layers 6\
                     --lr 0.0001\
                     --dry_run 0\
-                    --seed 42\
+                    --seed 3423452\
                     --test 0\
                     --n_workers 4\
                     --job_id $SLURM_JOB_ID
+
+# dataset: goemotions, yelp
+# model_name: transformer, lstm
