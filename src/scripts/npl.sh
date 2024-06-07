@@ -10,16 +10,16 @@
 
 echo "Starting Job"
 
-python ./src/train.py --dataset goemotions\
+python ./src/train.py --dataset yelp\
                     --batch_size 128\
-                    --epochs 100\
+                    --epochs 20\
                     --device cuda\
                     --output_name model.pt\
                     --output_path checkpoints\
                     --model_name transformer\
                     --n_heads 8\
                     --vocab_size 30522\
-                    --emb_dim 256\
+                    --emb_dim 768\
                     --hidden_dim 32\
                     --dropout 0.3\
                     --weight_decay 0.0001\

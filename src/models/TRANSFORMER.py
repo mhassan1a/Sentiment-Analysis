@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
-
+from transformers import BertTokenizer, BertModel
+#
 class TransformerClassifier(nn.Module):
     def __init__(self, input_dim, embedding_dim, 
-                 num_classes, n_heads, n_layers, dropout, dim_feedforward):
+                 num_classes, n_heads, n_layers, dropout, dim_feedforward, embedding_weihgts):
         super(TransformerClassifier, self).__init__()
 
         self.embedding = nn.Embedding(input_dim, embedding_dim)
-
+        self.embedding.weight = embedding_weihgts
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embedding_dim, nhead=n_heads,
             dim_feedforward=dim_feedforward, dropout=dropout
@@ -26,13 +27,16 @@ class TransformerClassifier(nn.Module):
 
 if __name__ == "__main__":
     input_dim = 30522 
-    embedding_dim = 256  
+    embedding_dim = 768  
     num_classes = 28
     n_heads = 8
     n_layers = 3
     dropout = 0.1
-
-    model = TransformerClassifier(input_dim, embedding_dim, num_classes, n_heads, n_layers, dropout)
+    embedding_weights = BertModel.from_pretrained("bert-base-uncased").embeddings.word_embeddings.weight
+    model = TransformerClassifier(input_dim, embedding_dim,
+                                  num_classes, n_heads, n_layers, 
+                                  dropout, 1024,
+                                  embedding_weights)
     
     x = torch.randint(0, input_dim, (32, 132))  
     print(f"Input size: {x.size()}") 

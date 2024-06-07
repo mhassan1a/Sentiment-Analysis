@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from transformers import BertModel
 class LSTMClassifier(nn.Module):
-    def __init__(self, input_dim, hidden_dim, num_classes, n_layers, dropout):
+    def __init__(self, input_dim, hidden_dim, num_classes, n_layers, dropout, embedding_weights):
         super(LSTMClassifier, self).__init__()
         
         self.vocab_size = input_dim
@@ -13,6 +13,7 @@ class LSTMClassifier(nn.Module):
         self.dropout = dropout
         
         self.embedding = nn.Embedding(input_dim, hidden_dim)
+        self.embedding.weight = embedding_weights
         self.lstm = nn.LSTM(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
@@ -39,12 +40,12 @@ class LSTMClassifier(nn.Module):
 
 if __name__ == "__main__":
     input_dim = 30522
-    hidden_dim = 256
+    hidden_dim = 768
     num_classes = 5
     n_layers = 2
     dropout = 0.5
-    
-    model = LSTMClassifier(input_dim, hidden_dim, num_classes, n_layers, dropout)
+    embedding_weights = BertModel.from_pretrained("bert-base-uncased").embeddings.word_embeddings.weight
+    model = LSTMClassifier(input_dim, hidden_dim, num_classes, n_layers, dropout, embedding_weights)
     x = torch.randint(0, input_dim, (32, 132))  
     print(f"Input size: {x.size()}") 
     y = torch.randint(0, num_classes, (32,))

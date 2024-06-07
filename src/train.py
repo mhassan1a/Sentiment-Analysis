@@ -13,6 +13,7 @@ import json
 import numpy as np
 from models.TRANSFORMER import TransformerClassifier
 from torch.utils.data import Subset
+from transformers import BertModel
 
 def seed_everything(seed):
     np.random.seed(seed)
@@ -196,7 +197,7 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_data, batch_size=args.batch_size,
                              shuffle=False, drop_last=True, num_workers=args.n_workers)
     
-    
+    embedding_weights = BertModel.from_pretrained("bert-base-uncased").embeddings.word_embeddings.weight
     if args.model_name.strip() == "lstm":
         model = LSTMClassifier(args.vocab_size, args.emb_dim,
                                num_classes, args.n_layers, 
@@ -207,7 +208,8 @@ if __name__ == "__main__":
         model = TransformerClassifier(args.vocab_size, args.emb_dim,
                                       num_classes, args.n_heads, 
                                       args.n_layers, args.dropout,
-                                      args.dim_feedforward
+                                      args.dim_feedforward,
+                                      embedding_weights,
                                       ).to(args.device)
     
     loss_fn = nn.CrossEntropyLoss().to(args.device)    
