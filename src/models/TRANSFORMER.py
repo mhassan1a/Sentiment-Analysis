@@ -8,7 +8,7 @@ class TransformerClassifier(nn.Module):
         super(TransformerClassifier, self).__init__()
 
         self.embedding = nn.Embedding(input_dim, embedding_dim)
-        self.embedding.weight = embedding_weihgts
+        self.embedding.weight = nn.Parameter(embedding_weihgts, requires_grad=False)
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=embedding_dim, nhead=n_heads,
             dim_feedforward=dim_feedforward, dropout=dropout

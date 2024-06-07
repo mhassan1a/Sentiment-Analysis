@@ -201,7 +201,8 @@ if __name__ == "__main__":
     if args.model_name.strip() == "lstm":
         model = LSTMClassifier(args.vocab_size, args.emb_dim,
                                num_classes, args.n_layers, 
-                               args.dropout
+                               args.dropout,
+                               embedding_weights,
                                ).to(args.device)
         
     elif args.model_name.strip() == "transformer":
@@ -213,7 +214,7 @@ if __name__ == "__main__":
                                       ).to(args.device)
     
     loss_fn = nn.CrossEntropyLoss().to(args.device)    
-    optimizer = Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=3)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Number of parameters: {num_params}")

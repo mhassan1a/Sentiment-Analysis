@@ -13,7 +13,7 @@ class LSTMClassifier(nn.Module):
         self.dropout = dropout
         
         self.embedding = nn.Embedding(input_dim, hidden_dim)
-        self.embedding.weight = embedding_weights
+        self.embedding.weight = nn.Parameter(embedding_weights, requires_grad=False)
         self.lstm = nn.LSTM(
             input_size=hidden_dim,
             hidden_size=hidden_dim,
