@@ -27,9 +27,11 @@ def seed_everything(seed):
 def to_cpu_numpy(x):
     return x.detach().cpu().numpy()
 
-def save_model(model, path):
-    torch.save(model.state_dict(), path)    
-
+def save_model(model, path, name):
+    torch.save(model, path+name)    
+    print(f"Model saved to: {path}")
+    torch.save(model.state_dict(), path + "state_dict_" + name )
+    
 def save_results(args, training_losses, validation_losses, train_acc, val_acc, test_loss, test_acc, path):
     results = {
         "training_losses": training_losses,
@@ -130,7 +132,8 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
                                 optimizer.param_groups[0]['lr']})
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            save_model(model, os.path.join(args.output_path, f"best_eval_epoch__{args.job_id}_" + args.output_name))
+            print("Saving model at epoch: ", epoch, "with validation accuracy: ", val_acc)
+            save_model(model, os.path.join(args.output_path, f"best_eval_epoch__{args.job_id}_" ), args.output_name)
         
         if args.dry_run == 1:
             break        
@@ -140,9 +143,9 @@ def train_model(args, model, loss_fn, optimizer, train_loader, validation_loader
     test_loss, test_acc = test_model(args, model, loss_fn, test_loader)
     
     print("Test Loss: ", test_loss, "Test Accuracy: ", test_acc)
-    save_model(model, os.path.join(args.output_path, args.output_name + f"_{args.job_id}"))
+    save_model(model, os.path.join(args.output_path,  f"_{args.job_id}_"), args.output_name)
     save_results(args, training_losses, validation_losses, train_accs, val_accs, test_loss, test_acc, args.output_path)
-    print("Model saved to: ", os.path.join(args.output_path, args.output_name))
+    print("Model saved to: ", os.path.join(args.output_path), args.output_name)
 
 
 if __name__ == "__main__":

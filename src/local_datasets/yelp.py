@@ -14,8 +14,8 @@ class YelpDataset(Dataset):
         self.mask = self.dataset['attention_mask']
         
     def __getitem__(self, idx):
-        token = torch.tensor(self.encoding[idx])
-        label = torch.tensor(self.labels[idx])
+        token = torch.tensor(self.encoding[idx], dtype=torch.long)
+        label = torch.tensor(self.labels[idx], dtype=torch.long)
         mask = torch.tensor(self.mask[idx], dtype=torch.bool)
         return (token, label, mask)
 

@@ -10,23 +10,23 @@
 
 echo "Starting Job"
 
-python ./src/train.py --dataset goemotions\
+python ./src/train.py --dataset yelp\
                     --batch_size 128\
                     --optimizer adam\
                     --momentum 0.2\
                     --epochs 100\
                     --device cuda\
-                    --output_name lstm_model.pt\
-                    --output_path checkpoints\
-                    --model_name lstm\
-                    --n_heads 4\
+                    --output_name transformer_model.pt\
+                    --output_path final_models\
+                    --model_name transformer\
+                    --n_heads 16\
                     --vocab_size 30522\
                     --emb_dim 64\
                     --hidden_dim 64\
                     --dropout 0.3\
                     --weight_decay 0.0001\
-                    --n_layers 3\
-                    --lr 0.0001\
+                    --n_layers 2\
+                    --lr 0.001\
                     --dry_run 0\
                     --seed 3423452\
                     --test 0\

@@ -23,7 +23,7 @@ class GoEmotionsDataset(Dataset):
 
     def __getitem__(self, idx):
         token = torch.tensor(self.flat_encoding[idx], dtype=torch.long)
-        label = torch.tensor(self.flat_labels[idx], dtype=torch.float)
+        label = torch.tensor(self.flat_labels[idx], dtype=torch.long)
         mask = torch.tensor(self.flat_mask[idx], dtype=torch.bool)
         return (token, label, mask)
 
