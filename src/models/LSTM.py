@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from transformers import BertModel
+
 class LSTMClassifier(nn.Module):
     def __init__(self, input_dim, hidden_dim, num_classes, n_layers, dropout, embedding_weights=None):
         super(LSTMClassifier, self).__init__()

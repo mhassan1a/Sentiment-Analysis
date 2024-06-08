@@ -10,7 +10,7 @@
 
 echo "Starting Job"
 
-python ./src/train.py --dataset yelp\
+python ./src/train.py --dataset goemotions\
                     --batch_size 128\
                     --optimizer adam\
                     --momentum 0.2\
@@ -19,7 +19,7 @@ python ./src/train.py --dataset yelp\
                     --output_name transformer_model.pt\
                     --output_path final_models\
                     --model_name transformer\
-                    --n_heads 16\
+                    --n_heads 4\
                     --vocab_size 30522\
                     --emb_dim 64\
                     --hidden_dim 64\
