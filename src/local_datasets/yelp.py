@@ -11,11 +11,13 @@ class YelpDataset(Dataset):
         self.dataset = datasets[split]
         self.encoding = self.dataset['input_ids']
         self.labels = self.dataset['label']
-
+        self.mask = self.dataset['attention_mask']
+        
     def __getitem__(self, idx):
         token = torch.tensor(self.encoding[idx])
         label = torch.tensor(self.labels[idx])
-        return (token, label)
+        mask = torch.tensor(self.mask[idx], dtype=torch.bool)
+        return (token, label, mask)
 
     def __len__(self):
         return len(self.labels)
@@ -32,7 +34,7 @@ if __name__ == "__main__":
     
     print(f"length of train dataset: {len(train_data)}")
     print(f"length of validation dataset: {len(validate_data)}")
-    for input, label in yelp_train_loader:
-        print(input.size(), label.size())
+    for input, label, mask in yelp_train_loader:
+        print(input.size(), label.size(), mask.size())
         break
     

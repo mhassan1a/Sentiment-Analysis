@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.optim import Adam
+from torch.optim import Adam, SGD
 from models.LSTM import LSTMClassifier
 from local_datasets.yelp import YelpDataset
 from local_datasets.goemotions import GoEmotionsDataset
@@ -49,11 +49,12 @@ def training_step(args, model, loss_fn, optimizer, data_loader):
     training_loss = 0
     correct_predictions = 0
     total_predictions = 0
-    for input, labels in data_loader:
+    for input, labels, masks in data_loader:
         input = input.to(args.device)
         labels = labels.to(args.device)
+        masks = masks.to(args.device)
         optimizer.zero_grad()
-        output = model(input)
+        output = model(input, masks)
         loss = loss_fn(output, labels)
         loss.backward()
         optimizer.step()
@@ -71,10 +72,11 @@ def validate_step(args, model, dataloader, loss_fn):
     validation_loss = 0
     correct_predictions = 0
     total_predictions = 0
-    for input, labels in dataloader:
+    for input, labels, masks in dataloader:
         input = input.to(args.device)
         labels = labels.to(args.device)
-        output = model(input)
+        masks = masks.to(args.device)
+        output = model(input, masks)
         loss = loss_fn(output, labels)
         validation_loss += loss.item()
         correct_predictions += (output.argmax(dim=1) == labels).sum().item()
@@ -90,10 +92,11 @@ def test_model(args, model, loss_fn, data_loader):
     test_loss = 0
     correct_predictions = 0
     total_predictions = 0
-    for input, labels in data_loader:
+    for input, labels, masks in data_loader:
         input = input.to(args.device)
         labels = labels.to(args.device)
-        output = model(input)
+        masks = masks.to(args.device)
+        output = model(input, masks)
         loss = loss_fn(output, labels)
         test_loss += loss.item()
         correct_predictions += (output.argmax(dim=1) == labels).sum().item()
@@ -151,7 +154,7 @@ if __name__ == "__main__":
     parser.add_argument('--output_name', type=str, default='model.pt', help='Output model name')
     parser.add_argument('--output_path', type=str, default='checkpoints/', help='Output model path')
     parser.add_argument('--vocab_size', type=int, default=30522, help='Vocabulary size')
-    parser.add_argument('--emb_dim', type=int, default=300, help='Embedding dimension')
+    parser.add_argument('--emb_dim', type=int, default=768, help='Embedding dimension')
     parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension')
     parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers')
@@ -165,6 +168,9 @@ if __name__ == "__main__":
     parser.add_argument('--job_id', type=int, default=0, help='Job id')
     parser.add_argument('--weight_decay', type=float, default=0.0001, help='Weight decay')
     parser.add_argument('--dim_feedforward', type=int, default="2048", help='Feedforward dimension')
+    parser.add_argument('--use_bert_embeddings', type=int, default=0, help='Learn embeddings')
+    parser.add_argument('--optimizer', type=str, default="adam", help='Optimizer to use')
+    parser.add_argument('--momentum', type=float, default=0.9, help='Momentum')
     args = parser.parse_args()
     print(args)
     
@@ -196,8 +202,11 @@ if __name__ == "__main__":
                                    shuffle=False, drop_last=True, num_workers=args.n_workers)    
     test_loader = DataLoader(test_data, batch_size=args.batch_size,
                              shuffle=False, drop_last=True, num_workers=args.n_workers)
-    
-    embedding_weights = BertModel.from_pretrained("bert-base-uncased").embeddings.word_embeddings.weight
+    if args.use_bert_embeddings == 1:
+        args.emb_dim = 768
+        embedding_weights = BertModel.from_pretrained("bert-base-uncased").embeddings.word_embeddings.weight
+    else:
+        embedding_weights = None
     if args.model_name.strip() == "lstm":
         model = LSTMClassifier(args.vocab_size, args.emb_dim,
                                num_classes, args.n_layers, 
@@ -213,9 +222,15 @@ if __name__ == "__main__":
                                       embedding_weights,
                                       ).to(args.device)
     
-    loss_fn = nn.CrossEntropyLoss().to(args.device)    
-    optimizer = Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr, weight_decay=args.weight_decay)
-    schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=3)
+    loss_fn = nn.CrossEntropyLoss().to(args.device)   
+    if  args.optimizer.strip() == "adam":
+        optimizer = Adam(filter(lambda p: p.requires_grad, model.parameters()),
+                         lr=args.lr, weight_decay=args.weight_decay) 
+    else:
+        optimizer = SGD(filter(lambda p: p.requires_grad, model.parameters()), 
+                        momentum=args.momentum, lr=args.lr) 
+        
+    schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    print(f"Number of parameters: {num_params}")
+    print(f"Model: {model.__class__}  Number of parameters: {num_params}")
     train_model(args, model, loss_fn, optimizer, train_loader, validation_loader, test_loader, schedular)
