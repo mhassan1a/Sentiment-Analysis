@@ -30,7 +30,10 @@ def to_cpu_numpy(x):
 def save_model(model, path, name):
     torch.save(model, path+name)    
     print(f"Model saved to: {path}")
-    torch.save(model.state_dict(), path + "state_dict_" + name )
+    model_dict = dict(model=model.state_dict(),
+                     model_name=model.__class__.__name__,
+                     model_config=args.model_config)
+    torch.save(model_dict, path + "model_dict_" + name )
     
 def save_results(args, training_losses, validation_losses, train_acc, val_acc, test_loss, test_acc, path):
     results = {
@@ -211,18 +214,29 @@ if __name__ == "__main__":
     else:
         embedding_weights = None
     if args.model_name.strip() == "lstm":
-        model = LSTMClassifier(args.vocab_size, args.emb_dim,
-                               num_classes, args.n_layers, 
-                               args.dropout,
-                               embedding_weights,
+        args.model_config = {
+            "input_dim": args.vocab_size,
+            "hidden_dim": args.emb_dim,
+            "n_layers": args.n_layers,
+            "dropout": args.dropout,
+            "num_classes": num_classes,
+            "embedding_weights": embedding_weights,
+        }
+        model = LSTMClassifier(**args.model_config
                                ).to(args.device)
         
     elif args.model_name.strip() == "transformer":
-        model = TransformerClassifier(args.vocab_size, args.emb_dim,
-                                      num_classes, args.n_heads, 
-                                      args.n_layers, args.dropout,
-                                      args.dim_feedforward,
-                                      embedding_weights,
+        args.model_config = {
+            "input_dim": args.vocab_size,
+            "embedding_dim": args.emb_dim,
+            "num_classes": num_classes,
+            "n_heads": args.n_heads,
+            "n_layers": args.n_layers,
+            "dropout": args.dropout,
+            "dim_feedforward": args.dim_feedforward,
+            "embedding_weights": embedding_weights,
+        }
+        model = TransformerClassifier(**args.model_config
                                       ).to(args.device)
     
     loss_fn = nn.CrossEntropyLoss().to(args.device)   
