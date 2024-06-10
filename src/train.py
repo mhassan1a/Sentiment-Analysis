@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.optim import Adam, SGD
+from torch.optim import Adam, SGD, AdamW
 from models.LSTM import LSTMClassifier
 from local_datasets.yelp import YelpDataset
 from local_datasets.goemotions import GoEmotionsDataset
@@ -160,8 +160,8 @@ if __name__ == "__main__":
     parser.add_argument('--output_name', type=str, default='model.pt', help='Output model name')
     parser.add_argument('--output_path', type=str, default='checkpoints/', help='Output model path')
     parser.add_argument('--vocab_size', type=int, default=30522, help='Vocabulary size')
-    parser.add_argument('--emb_dim', type=int, default=768, help='Embedding dimension')
-    parser.add_argument('--hidden_dim', type=int, default=256, help='Hidden dimension')
+    parser.add_argument('--embedding_dim', type=int, default=768, help='Embedding dimension')
+    parser.add_argument('--lstm_hidden_dim', type=int, default=256, help='Hidden dimension')
     parser.add_argument('--dropout', type=float, default=0.2, help='Dropout')
     parser.add_argument('--n_layers', type=int, default=2, help='Number of layers')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
@@ -169,17 +169,16 @@ if __name__ == "__main__":
     parser.add_argument('--seed', type=int, default=42, help='Seed')
     parser.add_argument('--test', type=int, default=1, help='Run a test')
     parser.add_argument('--n_workers', type=int, default=4, help='Number of workers')
-    parser.add_argument('--model_name', type=str, default='lstm', help='Model to train (lstm or transformer)')
+    parser.add_argument('--model_name', type=str, default='transformer', help='Model to train (lstm or transformer)')
     parser.add_argument('--n_heads', type=int, default=4, help='Number of heads')
     parser.add_argument('--job_id', type=int, default=0, help='Job id')
     parser.add_argument('--weight_decay', type=float, default=0.0001, help='Weight decay')
-    parser.add_argument('--dim_feedforward', type=int, default="2048", help='Feedforward dimension')
+    parser.add_argument('--trans_feedforward', type=int, default="2048", help='Feedforward dimension')
     parser.add_argument('--use_bert_embeddings', type=int, default=0, help='Learn embeddings')
     parser.add_argument('--optimizer', type=str, default="adam", help='Optimizer to use')
-    parser.add_argument('--momentum', type=float, default=0.9, help='Momentum')
+    parser.add_argument('--sgd_momentum', type=float, default=0.9, help='Momentum')
     args = parser.parse_args()
     print(args)
-    
     seed_everything(args.seed)
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
     
@@ -209,14 +208,15 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_data, batch_size=args.batch_size,
                              shuffle=False, drop_last=True, num_workers=args.n_workers)
     if args.use_bert_embeddings == 1:
-        args.emb_dim = 768
+        args.embedding_dim = 768
         embedding_weights = BertModel.from_pretrained("bert-base-uncased").embeddings.word_embeddings.weight
     else:
         embedding_weights = None
     if args.model_name.strip() == "lstm":
         args.model_config = {
             "input_dim": args.vocab_size,
-            "hidden_dim": args.emb_dim,
+            "embedding_dim": args.embedding_dim,
+            "hidden_size": args.lstm_hidden_dim,
             "n_layers": args.n_layers,
             "dropout": args.dropout,
             "num_classes": num_classes,
@@ -228,12 +228,12 @@ if __name__ == "__main__":
     elif args.model_name.strip() == "transformer":
         args.model_config = {
             "input_dim": args.vocab_size,
-            "embedding_dim": args.emb_dim,
+            "embedding_dim": args.embedding_dim,
             "num_classes": num_classes,
             "n_heads": args.n_heads,
             "n_layers": args.n_layers,
             "dropout": args.dropout,
-            "dim_feedforward": args.dim_feedforward,
+            "trans_feedforward": args.trans_feedforward,
             "embedding_weights": embedding_weights,
         }
         model = TransformerClassifier(**args.model_config
@@ -243,10 +243,14 @@ if __name__ == "__main__":
     if  args.optimizer.strip() == "adam":
         optimizer = Adam(filter(lambda p: p.requires_grad, model.parameters()),
                          lr=args.lr, weight_decay=args.weight_decay) 
-    else:
+    elif args.optimizer.strip() == "sgd":
         optimizer = SGD(filter(lambda p: p.requires_grad, model.parameters()), 
                         momentum=args.momentum, lr=args.lr) 
-        
+    elif args.optimizer.strip() == "adamW":
+        optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), 
+                          lr=args.lr, weight_decay=args.weight_decay)
+    else:
+        raise ValueError("Optimizer not supported")    
     schedular = lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5)
     num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Model: {model.__class__}  Number of parameters: {num_params}")
