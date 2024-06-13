@@ -12,28 +12,28 @@ echo "Starting Job"
 
 python ./src/train.py --dataset goemotions\
                     --batch_size 128\
-                    --optimizer adamW\
+                    --optimizer adam\
                     --sgd_momentum 0.2\
                     --epochs 100\
                     --device cuda\
-                    --output_name lstm_model.pt\
+                    --output_name trans_model.pt\
                     --output_path final_models\
-                    --model_name lstm\
+                    --model_name transformer\
                     --n_heads 4\
                     --vocab_size 30522\
                     --embedding_dim 128\
-                    --lstm_hidden_dim 1024\
+                    --lstm_hidden_dim 512\
                     --dropout 0.3\
-                    --weight_decay 0.005\
-                    --n_layers 2\
+                    --weight_decay 0.0005\
+                    --n_layers 3\
                     --lr 0.001\
                     --dry_run 0\
                     --seed 3423452\
                     --test 0\
                     --n_workers 4\
                     --job_id $SLURM_JOB_ID\
-                    --trans_feedforward 2048\
-                    --use_bert_embeddings 1\
+                    --trans_feedforward 2024\
+                    --use_bert_embeddings 0\
 
 # dataset: goemotions, yelp
 # model_name: transformer, lstm

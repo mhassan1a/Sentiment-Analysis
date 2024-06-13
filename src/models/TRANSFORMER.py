@@ -36,6 +36,10 @@ class TransformerClassifier(nn.Module):
                  num_classes, n_heads, n_layers, dropout, 
                  trans_feedforward, embedding_weights=None):
         super(TransformerClassifier, self).__init__()
+        
+        
+        self.embedding_dim = embedding_dim
+        
         self.embedding = nn.Embedding(input_dim, embedding_dim)
         if embedding_weights is not None:
             self.embedding.weight = nn.Parameter(embedding_weights, requires_grad=False)
@@ -48,9 +52,10 @@ class TransformerClassifier(nn.Module):
                                                          norm=nn.LayerNorm(embedding_dim))
 
         self.fc = nn.Linear(embedding_dim, num_classes, bias=False)
+        self.positional_encoding = PositionalEncoding(embedding_dim)
 
     def forward(self, x, mask):
-        embedded = self.embedding(x) + PositionalEncoding(embedding_dim)(self.embedding(x))
+        embedded = self.embedding(x) + self.positional_encoding(self.embedding(x))
         embedded = embedded.permute(1, 0, 2)  
         transformer_out = self.transformer_encoder(embedded)
         out = transformer_out.mean(dim=0)  

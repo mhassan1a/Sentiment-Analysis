@@ -183,6 +183,7 @@ if __name__ == "__main__":
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
     
     if args.dataset.strip() == "yelp":
+        weights = None
         args.output_name = "yelp_" + args.output_name
         num_classes = 5
         dataset = YelpDataset("train")
@@ -193,6 +194,11 @@ if __name__ == "__main__":
         test_data = YelpDataset("test")
         
     elif args.dataset.strip() == "goemotions":
+        weights = torch.tensor([0.0010, 0.0018, 0.0027, 0.0017, 0.0014, 0.0039, 0.0031, 0.0020, 0.0067,
+        0.0034, 0.0021, 0.0054, 0.0134, 0.0050, 0.0072, 0.0016, 0.0589, 0.0029,
+        0.0020, 0.0246, 0.0027, 0.0395, 0.0038, 0.0268, 0.0076, 0.0032, 0.0040,
+        0.0003])
+        
         args.output_name = "goemotions_" + args.output_name
         num_classes = 28
         train_data = GoEmotionsDataset("train")
@@ -239,7 +245,7 @@ if __name__ == "__main__":
         model = TransformerClassifier(**args.model_config
                                       ).to(args.device)
     
-    loss_fn = nn.CrossEntropyLoss().to(args.device)   
+    loss_fn = nn.CrossEntropyLoss(weight=weights).to(args.device)   
     if  args.optimizer.strip() == "adam":
         optimizer = Adam(filter(lambda p: p.requires_grad, model.parameters()),
                          lr=args.lr, weight_decay=args.weight_decay) 
