@@ -194,16 +194,17 @@ if __name__ == "__main__":
         test_data = YelpDataset("test")
         
     elif args.dataset.strip() == "goemotions":
-        weights = torch.tensor([0.0010, 0.0018, 0.0027, 0.0017, 0.0014, 0.0039, 0.0031, 0.0020, 0.0067,
-        0.0034, 0.0021, 0.0054, 0.0134, 0.0050, 0.0072, 0.0016, 0.0589, 0.0029,
-        0.0020, 0.0246, 0.0027, 0.0395, 0.0038, 0.0268, 0.0076, 0.0032, 0.0040,
-        0.0003])
-        
+        weights = None
         args.output_name = "goemotions_" + args.output_name
+        train_split = 0.7
+        val_split = 0.15
+        test_split = 0.15        
         num_classes = 28
-        train_data = GoEmotionsDataset("train")
-        validate_data = GoEmotionsDataset("validation")
-        test_data = GoEmotionsDataset("test")
+        dataset = GoEmotionsDataset("train")
+        idx = np.random.permutation(np.arange(len(dataset)))
+        train_data = Subset(dataset, idx[:int(len(dataset) * train_split)])
+        validate_data = Subset(dataset, idx[int(len(dataset) * train_split):int(len(dataset) * (train_split + val_split))])
+        test_data = Subset(dataset, idx[int(len(dataset) * (train_split + val_split)):])
     else:
         raise ValueError("Dataset not supported")
     

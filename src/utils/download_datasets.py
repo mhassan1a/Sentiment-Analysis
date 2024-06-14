@@ -3,7 +3,14 @@ import os
 from transformers import AutoTokenizer
 
 def download_datasets():
-    goemotion = datasets.load_dataset("go_emotions", "simplified")
+    emotions = emotions = [ 'admiration','amusement','anger','annoyance',
+        'approval','caring','confusion','curiosity','desire','disappointment','disapproval','disgust',
+        'embarrassment','excitement','fear','gratitude','grief','joy','love','nervousness','optimism','pride',
+        'realization','relief','remorse','sadness','surprise','neutral']
+            
+    goemotion = datasets.load_dataset("go_emotions", "raw")
+    goemotion = goemotion.map(lambda x : {"labels": [x[c] for c in emotions]})
+
     yelp = datasets.load_dataset("Yelp/yelp_review_full")
     if not os.path.exists("data"):
         os.makedirs("data")
