@@ -14,18 +14,18 @@ python ./src/train.py --dataset goemotions\
                     --batch_size 128\
                     --optimizer adam\
                     --sgd_momentum 0.2\
-                    --epochs 100\
+                    --epochs 10\
                     --device cuda\
-                    --output_name lstm_model.pt\
+                    --output_name trans_model.pt\
                     --output_path final_models\
-                    --model_name lstm\
-                    --n_heads 4\
+                    --model_name transformer\
+                    --n_heads 8\
                     --vocab_size 30522\
                     --embedding_dim 128\
                     --lstm_hidden_dim 512\
-                    --dropout 0.3\
-                    --weight_decay 0.0005\
-                    --n_layers 3\
+                    --dropout 0.25\
+                    --weight_decay 0.005\
+                    --n_layers 2\
                     --lr 0.001\
                     --dry_run 0\
                     --seed 3423452\
@@ -34,6 +34,7 @@ python ./src/train.py --dataset goemotions\
                     --job_id $SLURM_JOB_ID\
                     --trans_feedforward 1024\
                     --use_bert_embeddings 1\
+                    --weighted_loss 1\
 
 # dataset: goemotions, yelp
 # model_name: transformer, lstm

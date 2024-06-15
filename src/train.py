@@ -177,6 +177,7 @@ if __name__ == "__main__":
     parser.add_argument('--use_bert_embeddings', type=int, default=0, help='Learn embeddings')
     parser.add_argument('--optimizer', type=str, default="adam", help='Optimizer to use')
     parser.add_argument('--sgd_momentum', type=float, default=0.9, help='Momentum')
+    parser.add_argument('--weighted_loss', type=int, default=0, help='Use weighted loss')
     args = parser.parse_args()
     print(args)
     seed_everything(args.seed)
@@ -194,7 +195,14 @@ if __name__ == "__main__":
         test_data = YelpDataset("test")
         
     elif args.dataset.strip() == "goemotions":
-        weights = None
+        if args.weighted_loss == 1:
+            weights = torch.tensor([ 12.1309,  23.4500,  26.1204,  17.4209,  13.3815,  40.3758,  31.4870,
+            26.9643,  69.2252,  30.7008,  23.3054,  60.7643, 120.8221,  47.5003,
+            82.6627,  24.6313, 420.6761,  40.5887,  39.1363, 219.6765,  41.6127,
+            291.0560,  40.5491, 255.2998, 126.1007,  53.7960,  59.8543,   3.7581])
+            weights = weights / weights.sum()
+        else:
+            weights = None
         args.output_name = "goemotions_" + args.output_name
         train_split = 0.7
         val_split = 0.15

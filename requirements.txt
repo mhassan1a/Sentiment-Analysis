@@ -1,3 +1,4 @@
+#python==3.11 for scipy==1.10.1 to work
 numpy
 pandas
 torch
