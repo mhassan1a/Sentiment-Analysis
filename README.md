@@ -38,8 +38,6 @@ This project explores the relationship between sentiment analysis and emotional 
 - `requirements.txt`: List of Python dependencies for reproducing the environment.
 - `README.md`: Overview, installation instructions, and usage guidelines for the project.
 
-## Contributors
-- [Mohamed Hassan](https://github.com/mhassan1a)
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License 
