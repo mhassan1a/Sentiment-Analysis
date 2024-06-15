@@ -21,7 +21,8 @@ class YelpDataset(Dataset):
 
     def __len__(self):
         return len(self.labels)
-    
+ 
+
     
 if __name__ == "__main__":
     yelp_train = YelpDataset("train")
