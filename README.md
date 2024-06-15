@@ -1,7 +1,7 @@
 # Sentiment Analysis 
 
 ## Overview
-This project explores the relationship between sentiment analysis and emotional dimensions in text data. The hypothesis is that regardless of whether the model predicts the number of stars or the emotional dimensions of the text, the precision of sentiment classification should remain consistent for inputs that share the same sentiment. To test this hypothesis, we train a sentiment analysis model on the Go Emotions dataset, which annotates text with emotional dimensions. We then use this trained model to project Yelp reviews into emotional dimensions. Subsequently, we train an SVM to predict the rating of the Yelp reviews based on emotional embeddings and compare the performance with that of the reference Model trained on Yelp Reviews directly.
+This project explores the relationship between sentiment analysis and emotional dimensions in text data. The hypothesis is that regardless of whether the model predicts the number of stars or the emotional dimensions of the text, the precision of sentiment classification should remain consistent for inputs that share the same sentiment. To test this hypothesis, we train a sentiment analysis model on the Go Emotions dataset, which annotates text with emotional dimensions. We then use this trained model to project Yelp reviews into emotional dimensions. Subsequently, we train an SVM or RFC to predict the rating of the Yelp reviews based on emotional embeddings and compare the performance with that of the reference Model trained on Yelp Reviews directly.
 
 ## Datasets
 - **[Yelp Review](https://huggingface.co/datasets/yelp_review_full)**: The Yelp reviews dataset consists of reviews from Yelp. It is extracted from the Yelp Dataset Challenge 2015 data.
